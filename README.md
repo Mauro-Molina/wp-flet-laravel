@@ -57,9 +57,39 @@ Ver [SECURITY.md](SECURITY.md) — checklist multi-tenant, HMAC, rate limits, he
 
 Headers en API/plugin: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cache-Control: no-store`.
 
-## Contenido (Fase 4)
+## Contenido (proxy JWT → plugin)
 
-Proxy síncrono JWT → agente WP (`/api/v1/sites/{id}/content/...`). Fake Agent: `FAKE_AGENT_ENABLED=true`.
+La app usa `/api/v1/sites/{id}/content/*` (JWT). El Core reenvía HMAC al plugin en:
+
+```
+{site.url}/{CONTENT_AGENT_PATH_PREFIX}/...
+```
+
+Default / prod: `CONTENT_AGENT_PATH_PREFIX=wp-json/wpfleet/v1` y `FAKE_AGENT_ENABLED=false`.
+
+| Recurso | Rutas |
+|---------|-------|
+| Posts | list, CRUD, publish, schedule — body se reenvía **as-is** (`author`, `categories`, `tags`, `featured_media`, etc.) |
+| Pages | list, CRUD |
+| Users WP | list, invite, CRUD |
+| Categories | `GET/POST .../content/categories` |
+| Tags | `GET/POST .../content/tags?search=` |
+| Media | `GET/POST .../content/media`, `GET/DELETE .../media/{id}` |
+| Settings | get, update |
+
+### Media upload
+
+La app puede enviar:
+
+1. **JSON (recomendado móvil):**
+   ```json
+   { "file_base64": "...", "filename": "photo.jpg", "mime_type": "image/jpeg" }
+   ```
+2. **multipart/form-data** con campo `file` — el Core lo convierte a JSON+base64 antes de firmar hacia el plugin.
+
+Respuesta de post puede incluir: `author`, `categories[{id,name}]`, `tags[{id,name}]`, `featured_media`, `featured_image_url`.
+
+Fake Agent (solo stub): `FAKE_AGENT_ENABLED=true` → dispatch in-process / rutas `/fake-agent/wp/v2/*`.
 
 ## Operacional (Fases 2–3)
 

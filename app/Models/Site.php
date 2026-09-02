@@ -25,6 +25,8 @@ class Site extends TenantScopedModel
         'disconnected_at',
         'plugins_snapshot',
         'themes_snapshot',
+        'wp_version',
+        'php_version',
     ];
 
     protected function casts(): array

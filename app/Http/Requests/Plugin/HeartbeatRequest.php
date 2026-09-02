@@ -16,6 +16,12 @@ class HeartbeatRequest extends FormRequest
         return [
             'plugins' => ['nullable', 'array'],
             'themes' => ['nullable', 'array'],
+            'wp_version' => ['nullable', 'string', 'max:32'],
+            'php_version' => ['nullable', 'string', 'max:32'],
+            'wordpress_version' => ['nullable', 'string', 'max:32'],
+            'runtime' => ['nullable', 'array'],
+            'runtime.wp_version' => ['nullable', 'string', 'max:32'],
+            'runtime.php_version' => ['nullable', 'string', 'max:32'],
         ];
     }
 }

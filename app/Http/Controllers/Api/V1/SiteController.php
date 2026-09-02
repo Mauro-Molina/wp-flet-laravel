@@ -143,6 +143,10 @@ class SiteController extends Controller
             'connected_at' => $site->connected_at?->toIso8601String(),
             'disconnected_at' => $site->disconnected_at?->toIso8601String(),
             'license_status' => $site->license?->status?->value,
+            'wp_version' => $site->wp_version,
+            'php_version' => $site->php_version,
+            'plugins_snapshot' => $site->plugins_snapshot,
+            'themes_snapshot' => $site->themes_snapshot,
         ];
     }
 }

@@ -7,11 +7,11 @@ namespace App\FakeAgent;
  */
 class FakeAgentStore
 {
-    /** @var array<string, array{posts: array<int, array<string, mixed>>, pages: array<int, array<string, mixed>>, users: array<int, array<string, mixed>>, settings: array<string, mixed>}> */
+    /** @var array<string, array<string, mixed>> */
     private static array $sites = [];
 
     /**
-     * @return array{posts: array<int, array<string, mixed>>, pages: array<int, array<string, mixed>>, users: array<int, array<string, mixed>>, settings: array<string, mixed>}
+     * @return array<string, mixed>
      */
     private static function bucket(string $siteId): array
     {
@@ -26,6 +26,11 @@ class FakeAgentStore
                 'users' => [
                     1 => self::makeUser(1, 'admin@example.com', 'administrator'),
                 ],
+                'categories' => [
+                    1 => self::makeTerm(1, 'Uncategorized', 'uncategorized', 0, 'category'),
+                ],
+                'tags' => [],
+                'media' => [],
                 'settings' => [
                     'title' => 'WP Fleet Demo',
                     'tagline' => 'Just another WordPress site',
@@ -35,6 +40,9 @@ class FakeAgentStore
                 'next_post_id' => 2,
                 'next_page_id' => 2,
                 'next_user_id' => 2,
+                'next_category_id' => 2,
+                'next_tag_id' => 1,
+                'next_media_id' => 1,
             ];
         }
 
@@ -69,6 +77,7 @@ class FakeAgentStore
             $payload['date'] ?? null,
             self::extractContent($payload),
         );
+        $post = self::applyPostMeta($siteId, $post, $payload);
         self::$sites[$siteId]['posts'][$id] = $post;
 
         return $post;
@@ -97,6 +106,11 @@ class FakeAgentStore
         if (isset($payload['content'])) {
             $post['content']['rendered'] = self::extractContent($payload);
         }
+        if (isset($payload['excerpt'])) {
+            $post['excerpt'] = is_array($payload['excerpt'])
+                ? $payload['excerpt']
+                : ['rendered' => (string) $payload['excerpt']];
+        }
         if (isset($payload['status'])) {
             $post['status'] = $payload['status'];
         }
@@ -104,6 +118,7 @@ class FakeAgentStore
             $post['date'] = $payload['date'];
         }
 
+        $post = self::applyPostMeta($siteId, $post, $payload);
         $bucket['posts'][$id] = $post;
 
         return $post;
@@ -276,6 +291,121 @@ class FakeAgentStore
     }
 
     /**
+     * @return list<array<string, mixed>>
+     */
+    public static function listCategories(string $siteId): array
+    {
+        return array_values(self::bucket($siteId)['categories']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public static function createCategory(string $siteId, array $payload): array
+    {
+        self::bucket($siteId);
+        $id = self::$sites[$siteId]['next_category_id']++;
+        $name = (string) ($payload['name'] ?? 'Category '.$id);
+        $slug = (string) ($payload['slug'] ?? strtolower(str_replace(' ', '-', $name)));
+        $term = self::makeTerm($id, $name, $slug, (int) ($payload['parent'] ?? 0), 'category');
+        self::$sites[$siteId]['categories'][$id] = $term;
+
+        return $term;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function listTags(string $siteId, ?string $search = null): array
+    {
+        $tags = array_values(self::bucket($siteId)['tags']);
+        if ($search === null || $search === '') {
+            return $tags;
+        }
+
+        $needle = strtolower($search);
+
+        return array_values(array_filter(
+            $tags,
+            fn (array $tag) => str_contains(strtolower((string) $tag['name']), $needle)
+                || str_contains(strtolower((string) $tag['slug']), $needle)
+        ));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public static function createTag(string $siteId, array $payload): array
+    {
+        self::bucket($siteId);
+        $id = self::$sites[$siteId]['next_tag_id']++;
+        $name = (string) ($payload['name'] ?? 'Tag '.$id);
+        $slug = (string) ($payload['slug'] ?? strtolower(str_replace(' ', '-', $name)));
+        $term = self::makeTerm($id, $name, $slug, 0, 'post_tag');
+        self::$sites[$siteId]['tags'][$id] = $term;
+
+        return $term;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function listMedia(string $siteId, int $page = 1, int $perPage = 20): array
+    {
+        $all = array_values(self::bucket($siteId)['media']);
+        $offset = max(0, ($page - 1) * $perPage);
+
+        return array_slice($all, $offset, $perPage);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public static function createMedia(string $siteId, array $payload): array
+    {
+        self::bucket($siteId);
+        $id = self::$sites[$siteId]['next_media_id']++;
+        $filename = (string) ($payload['filename'] ?? $payload['title'] ?? 'upload-'.$id.'.jpg');
+        $mime = (string) ($payload['mime_type'] ?? $payload['mime'] ?? 'image/jpeg');
+        $url = (string) ($payload['source_url'] ?? 'https://example.com/media/'.$filename);
+
+        $media = [
+            'id' => $id,
+            'title' => ['rendered' => pathinfo($filename, PATHINFO_FILENAME) ?: $filename],
+            'source_url' => $url,
+            'mime_type' => $mime,
+            'media_type' => str_starts_with($mime, 'image/') ? 'image' : 'file',
+            'media_details' => [
+                'file' => $filename,
+                'width' => (int) ($payload['width'] ?? 1200),
+                'height' => (int) ($payload['height'] ?? 800),
+            ],
+        ];
+        self::$sites[$siteId]['media'][$id] = $media;
+
+        return $media;
+    }
+
+    public static function getMedia(string $siteId, int $id): ?array
+    {
+        return self::bucket($siteId)['media'][$id] ?? null;
+    }
+
+    public static function deleteMedia(string $siteId, int $id): bool
+    {
+        if (! isset(self::$sites[$siteId]['media'][$id])) {
+            return false;
+        }
+
+        unset(self::$sites[$siteId]['media'][$id]);
+
+        return true;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function getSettings(string $siteId): array
@@ -300,6 +430,99 @@ class FakeAgentStore
     }
 
     /**
+     * @param  array<string, mixed>  $post
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private static function applyPostMeta(string $siteId, array $post, array $payload): array
+    {
+        $author = $payload['author'] ?? $payload['author_id'] ?? null;
+        if ($author !== null) {
+            $post['author'] = (int) $author;
+        } elseif (! isset($post['author'])) {
+            $post['author'] = 1;
+        }
+
+        if (array_key_exists('categories', $payload) || array_key_exists('category_ids', $payload)) {
+            $post['categories'] = self::resolveTerms(
+                $siteId,
+                'categories',
+                $payload['categories'] ?? $payload['category_ids'] ?? []
+            );
+        } elseif (! isset($post['categories'])) {
+            $post['categories'] = [self::bucket($siteId)['categories'][1]];
+        }
+
+        if (array_key_exists('tags', $payload) || array_key_exists('tag_ids', $payload)) {
+            $post['tags'] = self::resolveTerms(
+                $siteId,
+                'tags',
+                $payload['tags'] ?? $payload['tag_ids'] ?? []
+            );
+        } elseif (! isset($post['tags'])) {
+            $post['tags'] = [];
+        }
+
+        $featured = $payload['featured_media'] ?? $payload['featured_image_id'] ?? null;
+        if ($featured !== null) {
+            $mediaId = (int) $featured;
+            $post['featured_media'] = $mediaId;
+            $media = self::getMedia($siteId, $mediaId);
+            $post['featured_image_url'] = $media['source_url'] ?? null;
+        } elseif (! array_key_exists('featured_media', $post)) {
+            $post['featured_media'] = 0;
+            $post['featured_image_url'] = null;
+        }
+
+        if (isset($payload['excerpt']) && ! isset($post['excerpt'])) {
+            $post['excerpt'] = is_array($payload['excerpt'])
+                ? $payload['excerpt']
+                : ['rendered' => (string) $payload['excerpt']];
+        }
+
+        return $post;
+    }
+
+    /**
+     * @param  list<mixed>  $terms
+     * @return list<array{id: int, name: string, slug: string}>
+     */
+    private static function resolveTerms(string $siteId, string $bucketKey, array $terms): array
+    {
+        self::bucket($siteId);
+        $resolved = [];
+
+        foreach ($terms as $term) {
+            if (is_int($term) || (is_string($term) && ctype_digit($term))) {
+                $id = (int) $term;
+                $existing = self::$sites[$siteId][$bucketKey][$id] ?? null;
+                if ($existing !== null) {
+                    $resolved[] = [
+                        'id' => (int) $existing['id'],
+                        'name' => (string) $existing['name'],
+                        'slug' => (string) $existing['slug'],
+                    ];
+                }
+
+                continue;
+            }
+
+            if (is_string($term) && $term !== '') {
+                $created = $bucketKey === 'tags'
+                    ? self::createTag($siteId, ['name' => $term])
+                    : self::createCategory($siteId, ['name' => $term]);
+                $resolved[] = [
+                    'id' => (int) $created['id'],
+                    'name' => (string) $created['name'],
+                    'slug' => (string) $created['slug'],
+                ];
+            }
+        }
+
+        return $resolved;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function makePost(int $id, string $title, string $status, ?string $date, string $content = ''): array
@@ -310,7 +533,15 @@ class FakeAgentStore
             'status' => $status,
             'title' => ['rendered' => $title],
             'content' => ['rendered' => $content !== '' ? $content : '<p>'.$title.'</p>'],
+            'excerpt' => ['rendered' => ''],
             'slug' => strtolower(str_replace(' ', '-', $title)),
+            'author' => 1,
+            'categories' => [
+                ['id' => 1, 'name' => 'Uncategorized', 'slug' => 'uncategorized'],
+            ],
+            'tags' => [],
+            'featured_media' => 0,
+            'featured_image_url' => null,
         ];
     }
 
@@ -321,6 +552,7 @@ class FakeAgentStore
     {
         $page = self::makePost($id, $title, $status, null, $content);
         $page['parent'] = $parent;
+        unset($page['categories'], $page['tags'], $page['featured_media'], $page['featured_image_url']);
 
         return $page;
     }
@@ -336,6 +568,20 @@ class FakeAgentStore
             'email' => $email,
             'roles' => [$role],
             'name' => ucfirst($username),
+        ];
+    }
+
+    /**
+     * @return array{id: int, name: string, slug: string, parent: int, taxonomy: string}
+     */
+    private static function makeTerm(int $id, string $name, string $slug, int $parent, string $taxonomy): array
+    {
+        return [
+            'id' => $id,
+            'name' => $name,
+            'slug' => $slug,
+            'parent' => $parent,
+            'taxonomy' => $taxonomy,
         ];
     }
 

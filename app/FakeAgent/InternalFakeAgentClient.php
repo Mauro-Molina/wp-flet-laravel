@@ -33,6 +33,9 @@ class InternalFakeAgentClient
             'posts' => $this->handlePosts($site->id, $method, $id, $action, $payload),
             'pages' => $this->handlePages($site->id, $method, $id, $payload),
             'users' => $this->handleUsers($site->id, $method, $id, $payload, $query),
+            'categories' => $this->handleCategories($site->id, $method, $id, $payload),
+            'tags' => $this->handleTags($site->id, $method, $id, $payload, $query),
+            'media' => $this->handleMedia($site->id, $method, $id, $payload, $query),
             'settings' => $this->handleSettings($site->id, $method, $payload),
             default => throw new ContentProxyException('Unknown WP resource.', 404, [
                 ['code' => 'rest_no_route', 'message' => 'Unknown WP resource.'],
@@ -171,6 +174,75 @@ class InternalFakeAgentClient
         }
 
         return $this->notFound('user');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function handleCategories(string $siteId, string $method, ?int $id, array $payload): ContentProxyResult
+    {
+        if ($method === 'GET' && $id === null) {
+            return new ContentProxyResult(200, FakeAgentStore::listCategories($siteId));
+        }
+
+        if ($method === 'POST' && $id === null) {
+            return new ContentProxyResult(201, FakeAgentStore::createCategory($siteId, $payload));
+        }
+
+        return $this->notFound('category');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $query
+     */
+    private function handleTags(string $siteId, string $method, ?int $id, array $payload, array $query): ContentProxyResult
+    {
+        if ($method === 'GET' && $id === null) {
+            $search = isset($query['search']) ? (string) $query['search'] : null;
+
+            return new ContentProxyResult(200, FakeAgentStore::listTags($siteId, $search));
+        }
+
+        if ($method === 'POST' && $id === null) {
+            return new ContentProxyResult(201, FakeAgentStore::createTag($siteId, $payload));
+        }
+
+        return $this->notFound('tag');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $query
+     */
+    private function handleMedia(string $siteId, string $method, ?int $id, array $payload, array $query): ContentProxyResult
+    {
+        if ($method === 'GET' && $id === null) {
+            $page = max(1, (int) ($query['page'] ?? 1));
+            $perPage = max(1, min(100, (int) ($query['per_page'] ?? 20)));
+
+            return new ContentProxyResult(200, FakeAgentStore::listMedia($siteId, $page, $perPage));
+        }
+
+        if ($method === 'POST' && $id === null) {
+            return new ContentProxyResult(201, FakeAgentStore::createMedia($siteId, $payload));
+        }
+
+        if ($method === 'GET' && $id !== null) {
+            $media = FakeAgentStore::getMedia($siteId, $id);
+
+            return $media
+                ? new ContentProxyResult(200, $media)
+                : $this->notFound('media');
+        }
+
+        if ($method === 'DELETE' && $id !== null) {
+            return FakeAgentStore::deleteMedia($siteId, $id)
+                ? new ContentProxyResult(200, ['deleted' => true, 'id' => $id])
+                : $this->notFound('media');
+        }
+
+        return $this->notFound('media');
     }
 
     /**

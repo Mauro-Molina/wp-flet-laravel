@@ -4,9 +4,12 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\BackupController;
 use App\Http\Controllers\Api\V1\BillingController;
 use App\Http\Controllers\Api\V1\CommandController;
+use App\Http\Controllers\Api\V1\Content\CategoryController;
+use App\Http\Controllers\Api\V1\Content\MediaController;
 use App\Http\Controllers\Api\V1\Content\PageController;
 use App\Http\Controllers\Api\V1\Content\PostController;
 use App\Http\Controllers\Api\V1\Content\SettingController;
+use App\Http\Controllers\Api\V1\Content\TagController;
 use App\Http\Controllers\Api\V1\Content\WpUserController;
 use App\Http\Controllers\Api\V1\LicenseController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -104,6 +107,17 @@ Route::middleware([AuthenticateJwt::class, 'throttle:api-tenant', AuditSensitive
         Route::get('users/{user}', [WpUserController::class, 'show'])->name('content.users.show')->whereNumber('user');
         Route::patch('users/{user}', [WpUserController::class, 'update'])->name('content.users.update')->whereNumber('user');
         Route::delete('users/{user}', [WpUserController::class, 'destroy'])->name('content.users.destroy')->whereNumber('user');
+
+        Route::get('categories', [CategoryController::class, 'index'])->name('content.categories.index');
+        Route::post('categories', [CategoryController::class, 'store'])->name('content.categories.store');
+
+        Route::get('tags', [TagController::class, 'index'])->name('content.tags.index');
+        Route::post('tags', [TagController::class, 'store'])->name('content.tags.store');
+
+        Route::get('media', [MediaController::class, 'index'])->name('content.media.index');
+        Route::post('media', [MediaController::class, 'store'])->name('content.media.store');
+        Route::get('media/{media}', [MediaController::class, 'show'])->name('content.media.show')->whereNumber('media');
+        Route::delete('media/{media}', [MediaController::class, 'destroy'])->name('content.media.destroy')->whereNumber('media');
 
         Route::get('settings', [SettingController::class, 'show'])->name('content.settings.show');
         Route::patch('settings', [SettingController::class, 'update'])->name('content.settings.update');

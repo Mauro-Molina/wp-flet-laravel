@@ -200,6 +200,75 @@ class FakeAgentController extends Controller
         return response()->json(FakeAgentStore::updateSettings($site->id, $request->all()));
     }
 
+    public function listCategories(Request $request): JsonResponse
+    {
+        $site = $this->site($request);
+
+        return response()->json(FakeAgentStore::listCategories($site->id));
+    }
+
+    public function createCategory(Request $request): JsonResponse
+    {
+        $site = $this->site($request);
+
+        return response()->json(FakeAgentStore::createCategory($site->id, $request->all()), 201);
+    }
+
+    public function listTags(Request $request): JsonResponse
+    {
+        $site = $this->site($request);
+
+        return response()->json(FakeAgentStore::listTags($site->id, $request->query('search')));
+    }
+
+    public function createTag(Request $request): JsonResponse
+    {
+        $site = $this->site($request);
+
+        return response()->json(FakeAgentStore::createTag($site->id, $request->all()), 201);
+    }
+
+    public function listMedia(Request $request): JsonResponse
+    {
+        $site = $this->site($request);
+
+        return response()->json(FakeAgentStore::listMedia(
+            $site->id,
+            max(1, (int) $request->query('page', 1)),
+            max(1, min(100, (int) $request->query('per_page', 20))),
+        ));
+    }
+
+    public function createMedia(Request $request): JsonResponse
+    {
+        $site = $this->site($request);
+
+        return response()->json(FakeAgentStore::createMedia($site->id, $request->all()), 201);
+    }
+
+    public function showMedia(Request $request, int $id): JsonResponse
+    {
+        $site = $this->site($request);
+        $media = FakeAgentStore::getMedia($site->id, $id);
+
+        if ($media === null) {
+            return $this->notFound('media');
+        }
+
+        return response()->json($media);
+    }
+
+    public function deleteMedia(Request $request, int $id): JsonResponse
+    {
+        $site = $this->site($request);
+
+        if (! FakeAgentStore::deleteMedia($site->id, $id)) {
+            return $this->notFound('media');
+        }
+
+        return response()->json(['deleted' => true, 'id' => $id]);
+    }
+
     private function site(Request $request): Site
     {
         /** @var Site $site */

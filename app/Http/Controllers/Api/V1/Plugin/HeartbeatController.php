@@ -29,10 +29,18 @@ class HeartbeatController extends Controller
 
         $wasPending = $site->status === 'pending';
 
+        $wpVersion = $request->input('wp_version')
+            ?? $request->input('wordpress_version')
+            ?? $request->input('runtime.wp_version');
+        $phpVersion = $request->input('php_version')
+            ?? $request->input('runtime.php_version');
+
         $site->forceFill([
             'last_seen_at' => now(),
             'status' => 'connected',
             'connected_at' => $site->connected_at ?? now(),
+            'wp_version' => is_string($wpVersion) && $wpVersion !== '' ? $wpVersion : $site->wp_version,
+            'php_version' => is_string($phpVersion) && $phpVersion !== '' ? $phpVersion : $site->php_version,
         ])->save();
 
         if ($request->has('plugins') || $request->has('themes')) {

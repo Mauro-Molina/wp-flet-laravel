@@ -25,6 +25,17 @@ Route::middleware(VerifyPluginHmac::class)->group(function (): void {
     Route::match(['patch', 'put'], 'users/{id}', [FakeAgentController::class, 'updateUser'])->whereNumber('id');
     Route::delete('users/{id}', [FakeAgentController::class, 'deleteUser'])->whereNumber('id');
 
+    Route::get('categories', [FakeAgentController::class, 'listCategories']);
+    Route::post('categories', [FakeAgentController::class, 'createCategory']);
+
+    Route::get('tags', [FakeAgentController::class, 'listTags']);
+    Route::post('tags', [FakeAgentController::class, 'createTag']);
+
+    Route::get('media', [FakeAgentController::class, 'listMedia']);
+    Route::post('media', [FakeAgentController::class, 'createMedia']);
+    Route::get('media/{id}', [FakeAgentController::class, 'showMedia'])->whereNumber('id');
+    Route::delete('media/{id}', [FakeAgentController::class, 'deleteMedia'])->whereNumber('id');
+
     Route::get('settings', [FakeAgentController::class, 'getSettings']);
     Route::match(['patch', 'put'], 'settings', [FakeAgentController::class, 'updateSettings']);
 });
